@@ -2,7 +2,7 @@ import { program } from "commander";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { getTags, getCommits, isGitRepository, getRemoteUrl, getTagDate } from "./git.js";
+import { getTags, getCommits, isGitRepository, getRemoteUrl, getTagDate, getLastTag, getCommitsSince } from "./git.js";
 import {
   normalizeTags,
   parseConventionalCommit,
@@ -12,6 +12,7 @@ import { DeduplicationSet, dedupeCommits } from "./dedup.js";
 import { formatChangelog, type TagChangelog } from "./formatter.js";
 import { writeOutput } from "./writer.js";
 import { parseRemoteUrl } from "./remote.js";
+import { suggestNextVersion, getNextPrereleaseVersion } from "./bump.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,9 @@ export async function run(): Promise<void> {
     .version(getVersion(), "-v, --version", "output the current version")
     .option("-f, --file <path>", "output file path (defaults to stdout)")
     .option("-a, --all", "include all commit types (not just feat/fix/perf/revert)")
+    .option("-b, --bump", "suggest next version based on unreleased commits")
+    .option("--prefix <prefix>", "prefix for bump output (e.g., 'v' for v1.2.3)")
+    .option("--suffix <suffix>", "suffix for bump output (e.g., '-rc.1')")
     .action(async (options) => {
       const cwd = process.cwd();
       const verbose = options.all || false;
@@ -35,6 +39,23 @@ export async function run(): Promise<void> {
       if (!isGitRepository(cwd)) {
         console.error("Error: Current directory is not a Git repository");
         process.exit(1);
+      }
+
+      if (options.bump) {
+        const lastTag = getLastTag(cwd);
+        const commits = lastTag ? getCommitsSince(lastTag, cwd) : getCommits("HEAD", cwd);
+        const result = suggestNextVersion(commits, lastTag);
+        const prefix = options.prefix || "";
+        const suffix = options.suffix || "";
+
+        let version = result.nextVersion;
+        if (suffix) {
+          const allTags = getTags(cwd);
+          version = getNextPrereleaseVersion(result.nextVersion, suffix, allTags);
+        }
+
+        console.log(`${prefix}${version}`);
+        return;
       }
 
       const remoteUrl = getRemoteUrl(cwd);

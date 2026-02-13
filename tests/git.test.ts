@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { execSync } from "node:child_process";
-import { isGitRepository, getTags, getCommits, getRemoteUrl, getTagDate } from "../src/git.js";
+import { isGitRepository, getTags, getCommits, getRemoteUrl, getTagDate, getLastTag, getCommitsSince } from "../src/git.js";
 
 vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
@@ -208,5 +208,61 @@ describe("getTagDate", () => {
     const result = getTagDate("invalid-tag", "/repo");
 
     expect(result).toBe("");
+  });
+});
+
+describe("getLastTag", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the last tag on current branch", () => {
+    mockedExecSync.mockReturnValue("v1.2.3\n");
+
+    const result = getLastTag("/repo");
+
+    expect(result).toBe("v1.2.3");
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      "git describe --tags --abbrev=0",
+      expect.objectContaining({ cwd: "/repo" })
+    );
+  });
+
+  it("returns null when no tags exist", () => {
+    mockedExecSync.mockImplementation(() => {
+      throw new Error("No tags");
+    });
+
+    const result = getLastTag("/repo");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("getCommitsSince", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns commits since a ref", () => {
+    mockedExecSync.mockReturnValue("abc123|feat: new feature|\n");
+
+    const result = getCommitsSince("v1.0.0", "/repo");
+
+    expect(result).toEqual([
+      { hash: "abc123", subject: "feat: new feature", body: "" },
+    ]);
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      'git log v1.0.0..HEAD --format="%H|%s|%b" --no-merges',
+      expect.objectContaining({ cwd: "/repo" })
+    );
+  });
+
+  it("returns empty array when no new commits", () => {
+    mockedExecSync.mockReturnValue("");
+
+    const result = getCommitsSince("v1.0.0", "/repo");
+
+    expect(result).toEqual([]);
   });
 });

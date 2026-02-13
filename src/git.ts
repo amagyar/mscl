@@ -110,3 +110,24 @@ export function getTagDate(tag: string, cwd: string): string {
     return "";
   }
 }
+
+export function getLastTag(cwd: string): string | null {
+  try {
+    const output = execSync("git describe --tags --abbrev=0", {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return output.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export function getCommitsSince(ref: string, cwd: string): RawCommit[] {
+  const output = execSync(`git log ${ref}..HEAD --format="%H|%s|%b" --no-merges`, {
+    cwd,
+    encoding: "utf-8",
+  });
+  return parseCommitOutput(output);
+}

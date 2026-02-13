@@ -196,6 +196,32 @@ describe("formatChangelog", () => {
   });
 
   describe("breaking changes", () => {
+    it("rolls up multiple pre-release commits into stable release", () => {
+      const changelogs: TagChangelog[] = [
+        {
+          tag: "0.1.0",
+          displayTag: "v0.1.0",
+          originalTag: "v0.1.0",
+          date: "2025-01-15",
+          commits: [
+            createCommit("fix", "bug 123", undefined, "a1"),
+            createCommit("fix", "bug 234", undefined, "a2"),
+            createCommit("feat", "feature 123", undefined, "b1"),
+            createCommit("feat", "feature 234", undefined, "b2"),
+          ],
+        },
+      ];
+
+      const result = formatChangelog(changelogs);
+
+      expect(result).toContain("### Features");
+      expect(result).toContain("feature 123");
+      expect(result).toContain("feature 234");
+      expect(result).toContain("### Bug Fixes");
+      expect(result).toContain("bug 123");
+      expect(result).toContain("bug 234");
+    });
+
     it("creates breaking changes section at top of version", () => {
       const changelogs: TagChangelog[] = [
         createChangelog("v1.0.0", [

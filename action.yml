@@ -18,12 +18,25 @@ inputs:
     description: 'Directory to run the action in'
     required: false
     default: '.'
+  bump:
+    description: 'Output suggested next version instead of changelog'
+    required: false
+    default: 'false'
+  prefix:
+    description: 'Prefix for bump output (e.g., "v" for v1.2.3)'
+    required: false
+    default: ''
+  suffix:
+    description: 'Suffix for bump output (e.g., "-rc.1")'
+    required: false
+    default: ''
 
 outputs:
   changelog:
     description: 'Path to the generated changelog file'
-    value: ${{ steps.mscl.outputs.changelog }}
+  version:
+    description: 'Suggested next version (when bump is enabled)'
 
 runs:
   using: 'node20'
-  main: 'dist/index.js'
+  main: 'dist/action.js'

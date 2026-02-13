@@ -18,6 +18,7 @@ A CLI tool that generates changelogs from fractured git histories using Conventi
 - **Breaking Changes Detection** - Detects `!` syntax and `BREAKING CHANGE:` footers
 - **Tag Parsing** - Normalizes tags like `old-prefix-v1.0.0` to clean semver
 - **Compare URLs** - Generates version comparison links in the changelog
+- **Version Bump Suggestion** - Suggests the next version based on unreleased commits
 
 ## Installation
 
@@ -39,9 +40,40 @@ mscl -f CHANGELOG.md
 # Include all commit types (not just feat/fix/perf/revert)
 mscl -a -f CHANGELOG.md
 
+# Suggest next version based on unreleased commits
+mscl -b
+
 # Show version
 mscl -v
 ```
+
+#### Version Bump (`-b, --bump`)
+
+Outputs the suggested next version based on conventional commits since the last tag:
+
+| Commit Type | Version Bump |
+| ----------- | ------------ |
+| `feat!:` or `BREAKING CHANGE:` | Major (Minor if 0.x) |
+| `feat:` | Minor |
+| `fix:`, `perf:` | Patch |
+| Other types | No bump |
+
+If no prior tag exists, assumes `0.0.0` as the base version.
+
+```bash
+# Get next version
+mscl -b
+
+# With prefix (e.g., v1.2.3)
+mscl -b --prefix v
+
+# With suffix (auto-increments: -rc.1, -rc.2, etc.)
+mscl -b --suffix -rc
+```
+
+When using `--suffix`, the version automatically appends `.N` and increments:
+- If no previous pre-release for the version: `1.0.0-rc.1`
+- If `1.0.0-rc.2` exists: `1.0.0-rc.3`
 
 ### GitHub Action
 
@@ -63,12 +95,30 @@ Use mscl directly in your GitHub Actions workflows:
 | `file`              | Output file path for the changelog                       | No       | `CHANGELOG.md` |
 | `verbose`           | Include all commit types (not just feat/fix/perf/revert) | No       | `false`        |
 | `working-directory` | Directory to run the action in                           | No       | `.`            |
+| `bump`              | Output suggested next version instead of changelog       | No       | `false`        |
+| `prefix`            | Prefix for bump output (e.g., `v` for v1.2.3)            | No       | `""`           |
+| `suffix`            | Suffix for bump output (e.g., `-rc.1`)                   | No       | `""`           |
 
 **Outputs:**
 
-| Output      | Description                          |
-| ----------- | ------------------------------------ |
-| `changelog` | Path to the generated changelog file |
+| Output      | Description                                       |
+| ----------- | ------------------------------------------------- |
+| `changelog` | Path to the generated changelog file              |
+| `version`   | Suggested next version (when `bump` is enabled)   |
+
+**Example: Get next version:**
+
+```yaml
+- name: Get next version
+  uses: amagyar/mscl@v1
+  id: version
+  with:
+    bump: true
+    prefix: v
+
+- name: Use version
+  run: echo "Next version is ${{ steps.version.outputs.version }}"
+```
 
 **Example with commit & push:**
 
