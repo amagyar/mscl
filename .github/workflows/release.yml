@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Dogfood - Generate changelog
+        run: node dist/index.js -f CHANGELOG.md
+
+      - name: Verify changelog was created
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::error::Dogfooding failed - changelog was not generated"
+            exit 1
+          fi
+          echo "Changelog generated successfully"
+          cat CHANGELOG.md
+
+      - name: Publish to npm
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Upload changelog to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: CHANGELOG.md

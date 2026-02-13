@@ -1,0 +1,30 @@
+{
+  "name": "mscl",
+  "version": "1.0.0",
+  "author": "amagyar",
+  "description": "Generate changelogs from Git tags using Conventional Commits",
+  "type": "module",
+  "bin": {
+    "mscl": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "semver": "^7.7.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@types/semver": "^7.7.1",
+    "@vitest/coverage-v8": "^4.0.18",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

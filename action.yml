@@ -1,0 +1,29 @@
+name: 'mscl'
+description: 'Generate changelogs from Git tags using Conventional Commits'
+author: 'amagyar'
+branding:
+  icon: 'file-text'
+  color: 'blue'
+
+inputs:
+  file:
+    description: 'Output file path for the changelog'
+    required: false
+    default: 'CHANGELOG.md'
+  verbose:
+    description: 'Include all commit types (not just feat/fix/perf/revert)'
+    required: false
+    default: 'false'
+  working-directory:
+    description: 'Directory to run the action in'
+    required: false
+    default: '.'
+
+outputs:
+  changelog:
+    description: 'Path to the generated changelog file'
+    value: ${{ steps.mscl.outputs.changelog }}
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
