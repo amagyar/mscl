@@ -4,7 +4,7 @@
 [![CI Build Status](https://github.com/amagyar/mscl/workflows/CI/badge.svg)](https://github.com/amagyar/mscl/actions)
 [![Coverage Status](https://coveralls.io/repos/github/amagyar/mscl/badge.svg?branch=main)](https://coveralls.io/github/amagyar/mscl?branch=main)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/amagyar/mscl/badge)](https://securityscorecards.dev/viewer/?uri=github.com/amagyar/mscl)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/mscl/badge)](https://www.bestpractices.dev/projects/mscl)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11935/badge)](https://www.bestpractices.dev/projects/11935)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A CLI tool that generates changelogs from fractured git histories using Conventional Commits.
