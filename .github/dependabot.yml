@@ -5,17 +5,15 @@ updates:
     schedule:
       interval: weekly
     groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
+      npm:
+        patterns:
+          - "*"
