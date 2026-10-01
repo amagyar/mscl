@@ -1,4 +1,5 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { normalizeTags } from "./parser.js";
 
 export interface RawCommit {
   hash: string;
@@ -8,7 +9,7 @@ export interface RawCommit {
 
 export function isGitRepository(cwd: string): boolean {
   try {
-    execSync("git rev-parse --is-inside-work-tree", {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -20,7 +21,7 @@ export function isGitRepository(cwd: string): boolean {
 }
 
 export function getTags(cwd: string): string[] {
-  const output = execSync("git tag", {
+  const output = execFileSync("git", ["tag"], {
     cwd,
     encoding: "utf-8",
   });
@@ -31,7 +32,7 @@ export function getTags(cwd: string): string[] {
 }
 
 export function getCommits(tag: string, cwd: string): RawCommit[] {
-  const output = execSync(`git log ${tag} --format="%H|%s|%b" --no-merges`, {
+  const output = execFileSync("git", ["log", "-z", "--format=%H%x00%s%x00%b", "--no-merges", "--end-of-options", tag], {
     cwd,
     encoding: "utf-8",
   });
@@ -39,43 +40,16 @@ export function getCommits(tag: string, cwd: string): RawCommit[] {
 }
 
 function parseCommitOutput(output: string): RawCommit[] {
-  const lines = output.trim().split("\n");
+  const fields = output.split("\0");
   const commits: RawCommit[] = [];
-  let currentHash = "";
-  let currentSubject = "";
-  let currentBody = "";
 
-  for (const line of lines) {
-    if (line.includes("|") && isValidHashStart(line.split("|")[0] || "")) {
-      if (currentHash) {
-        commits.push({
-          hash: currentHash,
-          subject: currentSubject,
-          body: currentBody.trim(),
-        });
-      }
-      const [hash, ...rest] = line.split("|");
-      currentHash = hash || "";
-      const remaining = rest.join("|");
-      const separatorIndex = remaining.lastIndexOf("|");
-      if (separatorIndex > -1) {
-        currentSubject = remaining.slice(0, separatorIndex);
-        currentBody = remaining.slice(separatorIndex + 1);
-      } else {
-        currentSubject = remaining;
-        currentBody = "";
-      }
-    } else if (currentHash) {
-      currentBody += (currentBody ? "\n" : "") + line;
-    }
-  }
+  for (let i = 0; i + 2 < fields.length; i += 3) {
+    const hash = fields[i]?.trim();
+    const subject = fields[i + 1];
+    const body = fields[i + 2];
+    if (!hash || !subject || body === undefined || !isValidHashStart(hash)) continue;
 
-  if (currentHash) {
-    commits.push({
-      hash: currentHash,
-      subject: currentSubject,
-      body: currentBody.trim(),
-    });
+    commits.push({ hash, subject, body: body.trim() });
   }
 
   return commits;
@@ -87,7 +61,7 @@ function isValidHashStart(s: string): boolean {
 
 export function getRemoteUrl(cwd: string): string | null {
   try {
-    const output = execSync("git remote get-url origin", {
+    const output = execFileSync("git", ["remote", "get-url", "origin"], {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -100,7 +74,7 @@ export function getRemoteUrl(cwd: string): string | null {
 
 export function getTagDate(tag: string, cwd: string): string {
   try {
-    const output = execSync(`git log -1 --format=%as ${tag}`, {
+    const output = execFileSync("git", ["log", "-1", "--format=%as", "--end-of-options", tag], {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -112,20 +86,31 @@ export function getTagDate(tag: string, cwd: string): string {
 }
 
 export function getLastTag(cwd: string): string | null {
+  let tags: string[];
   try {
-    const output = execSync("git describe --tags --abbrev=0", {
-      cwd,
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    return output.trim() || null;
+    tags = getTags(cwd);
   } catch {
     return null;
   }
+  const reachableTags = tags.filter((tag) => {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", `refs/tags/${tag}`, "HEAD"], {
+        cwd,
+        stdio: "ignore",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  const { versions, tags: tagMap } = normalizeTags(reachableTags);
+  const latestVersion = versions.at(-1);
+  return latestVersion ? tagMap.get(latestVersion)!.original : null;
 }
 
 export function getCommitsSince(ref: string, cwd: string): RawCommit[] {
-  const output = execSync(`git log ${ref}..HEAD --format="%H|%s|%b" --no-merges`, {
+  const output = execFileSync("git", ["log", "-z", "--format=%H%x00%s%x00%b", "--no-merges", "--end-of-options", `${ref}..HEAD`], {
     cwd,
     encoding: "utf-8",
   });

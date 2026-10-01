@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { isGitRepository, getTags, getCommits, getRemoteUrl, getTagDate, getLastTag, getCommitsSince } from "../src/git.js";
 
 vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
+  execFileSync: vi.fn(),
 }));
 
-const mockedExecSync = vi.mocked(execSync);
+const mockedExecFileSync = vi.mocked(execFileSync);
 
 describe("isGitRepository", () => {
   beforeEach(() => {
@@ -14,19 +14,20 @@ describe("isGitRepository", () => {
   });
 
   it("returns true when inside a git repository", () => {
-    mockedExecSync.mockReturnValue("true");
+    mockedExecFileSync.mockReturnValue("true");
 
     const result = isGitRepository("/some/path");
 
     expect(result).toBe(true);
-    expect(mockedExecSync).toHaveBeenCalledWith(
-      "git rev-parse --is-inside-work-tree",
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      "git",
+      ["rev-parse", "--is-inside-work-tree"],
       expect.objectContaining({ cwd: "/some/path" })
     );
   });
 
   it("returns false when not a git repository", () => {
-    mockedExecSync.mockImplementation(() => {
+    mockedExecFileSync.mockImplementation(() => {
       throw new Error("Not a git repository");
     });
 
@@ -42,7 +43,7 @@ describe("getTags", () => {
   });
 
   it("returns array of tags", () => {
-    mockedExecSync.mockReturnValue("v1.0.0\nv1.1.0\nv2.0.0\n");
+    mockedExecFileSync.mockReturnValue("v1.0.0\nv1.1.0\nv2.0.0\n");
 
     const result = getTags("/repo");
 
@@ -50,7 +51,7 @@ describe("getTags", () => {
   });
 
   it("returns empty array when no tags exist", () => {
-    mockedExecSync.mockReturnValue("");
+    mockedExecFileSync.mockReturnValue("");
 
     const result = getTags("/repo");
 
@@ -58,7 +59,7 @@ describe("getTags", () => {
   });
 
   it("filters empty lines from output", () => {
-    mockedExecSync.mockReturnValue("v1.0.0\n\nv1.1.0\n\n");
+    mockedExecFileSync.mockReturnValue("v1.0.0\n\nv1.1.0\n\n");
 
     const result = getTags("/repo");
 
@@ -72,8 +73,8 @@ describe("getCommits", () => {
   });
 
   it("parses commit output with body", () => {
-    mockedExecSync.mockReturnValue(
-      "abc123|feat: add feature|Some body text\n"
+    mockedExecFileSync.mockReturnValue(
+      "abc123\0feat: add feature\0Some body text\0"
     );
 
     const result = getCommits("v1.0.0", "/repo");
@@ -84,7 +85,7 @@ describe("getCommits", () => {
   });
 
   it("handles commits with empty body", () => {
-    mockedExecSync.mockReturnValue("abc123|feat: add feature|\n");
+    mockedExecFileSync.mockReturnValue("abc123\0feat: add feature\0\0");
 
     const result = getCommits("v1.0.0", "/repo");
 
@@ -93,19 +94,34 @@ describe("getCommits", () => {
     ]);
   });
 
+  it("preserves pipes in subjects and multiline bodies", () => {
+    mockedExecFileSync.mockReturnValue("abc123\0feat: support | in title\0body | text\nBREAKING CHANGE: keep | intact\0");
+
+    const result = getCommits("v1.0.0", "/repo");
+
+    expect(result).toEqual([
+      {
+        hash: "abc123",
+        subject: "feat: support | in title",
+        body: "body | text\nBREAKING CHANGE: keep | intact",
+      },
+    ]);
+  });
+
   it("includes --no-merges flag", () => {
-    mockedExecSync.mockReturnValue("");
+    mockedExecFileSync.mockReturnValue("");
 
     getCommits("v1.0.0", "/repo");
 
-    expect(mockedExecSync).toHaveBeenCalledWith(
-      expect.stringContaining("--no-merges"),
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      "git",
+      expect.arrayContaining(["--no-merges"]),
       expect.any(Object)
     );
   });
 
   it("returns empty array for no commits", () => {
-    mockedExecSync.mockReturnValue("");
+    mockedExecFileSync.mockReturnValue("");
 
     const result = getCommits("v1.0.0", "/repo");
 
@@ -113,8 +129,8 @@ describe("getCommits", () => {
   });
 
   it("parses multiple commits", () => {
-    mockedExecSync.mockReturnValue(
-      "abc123|feat: first|body1\ndef456|fix: second|body2\n"
+    mockedExecFileSync.mockReturnValue(
+      "abc123\0feat: first\0body1\0def456\0fix: second\0body2\0"
     );
 
     const result = getCommits("v1.0.0", "/repo");
@@ -126,8 +142,8 @@ describe("getCommits", () => {
   });
 
   it("handles multiline body", () => {
-    mockedExecSync.mockReturnValue(
-      "abc123|feat: add feature|first line\nsecond line\nthird line\n"
+    mockedExecFileSync.mockReturnValue(
+      "abc123\0feat: add feature\0first line\nsecond line\nthird line\0"
     );
 
     const result = getCommits("v1.0.0", "/repo");
@@ -138,7 +154,7 @@ describe("getCommits", () => {
   });
 
   it("handles commit without body separator", () => {
-    mockedExecSync.mockReturnValue("abc123|feat: add feature\n");
+    mockedExecFileSync.mockReturnValue("abc123\0feat: add feature\0\0");
 
     const result = getCommits("v1.0.0", "/repo");
 
@@ -148,12 +164,13 @@ describe("getCommits", () => {
   });
 
   it("uses correct git log command with tag", () => {
-    mockedExecSync.mockReturnValue("");
+    mockedExecFileSync.mockReturnValue("");
 
     getCommits("v2.0.0", "/repo");
 
-    expect(mockedExecSync).toHaveBeenCalledWith(
-      'git log v2.0.0 --format="%H|%s|%b" --no-merges',
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      "git",
+      ["log", "-z", "--format=%H%x00%s%x00%b", "--no-merges", "--end-of-options", "v2.0.0"],
       expect.objectContaining({ cwd: "/repo" })
     );
   });
@@ -165,7 +182,7 @@ describe("getRemoteUrl", () => {
   });
 
   it("returns remote url when origin exists", () => {
-    mockedExecSync.mockReturnValue("git@github.com:acme/repo.git\n");
+    mockedExecFileSync.mockReturnValue("git@github.com:acme/repo.git\n");
 
     const result = getRemoteUrl("/repo");
 
@@ -173,7 +190,7 @@ describe("getRemoteUrl", () => {
   });
 
   it("returns null when no origin remote", () => {
-    mockedExecSync.mockImplementation(() => {
+    mockedExecFileSync.mockImplementation(() => {
       throw new Error("No remote");
     });
 
@@ -189,19 +206,20 @@ describe("getTagDate", () => {
   });
 
   it("returns tag date in ISO format", () => {
-    mockedExecSync.mockReturnValue("2025-10-28\n");
+    mockedExecFileSync.mockReturnValue("2025-10-28\n");
 
     const result = getTagDate("v1.0.0", "/repo");
 
     expect(result).toBe("2025-10-28");
-    expect(mockedExecSync).toHaveBeenCalledWith(
-      "git log -1 --format=%as v1.0.0",
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      "git",
+      ["log", "-1", "--format=%as", "--end-of-options", "v1.0.0"],
       expect.objectContaining({ cwd: "/repo" })
     );
   });
 
   it("returns empty string on error", () => {
-    mockedExecSync.mockImplementation(() => {
+    mockedExecFileSync.mockImplementation(() => {
       throw new Error("Tag not found");
     });
 
@@ -217,19 +235,27 @@ describe("getLastTag", () => {
   });
 
   it("returns the last tag on current branch", () => {
-    mockedExecSync.mockReturnValue("v1.2.3\n");
+    mockedExecFileSync.mockReturnValue("v1.2.3\n");
 
     const result = getLastTag("/repo");
 
     expect(result).toBe("v1.2.3");
-    expect(mockedExecSync).toHaveBeenCalledWith(
-      "git describe --tags --abbrev=0",
+    expect(mockedExecFileSync).toHaveBeenNthCalledWith(
+      1,
+      "git",
+      ["tag"],
+      expect.objectContaining({ cwd: "/repo" })
+    );
+    expect(mockedExecFileSync).toHaveBeenNthCalledWith(
+      2,
+      "git",
+      ["merge-base", "--is-ancestor", "refs/tags/v1.2.3", "HEAD"],
       expect.objectContaining({ cwd: "/repo" })
     );
   });
 
   it("returns null when no tags exist", () => {
-    mockedExecSync.mockImplementation(() => {
+    mockedExecFileSync.mockImplementation(() => {
       throw new Error("No tags");
     });
 
@@ -245,21 +271,34 @@ describe("getCommitsSince", () => {
   });
 
   it("returns commits since a ref", () => {
-    mockedExecSync.mockReturnValue("abc123|feat: new feature|\n");
+    mockedExecFileSync.mockReturnValue("abc123\0feat: new feature\0\0");
 
     const result = getCommitsSince("v1.0.0", "/repo");
 
     expect(result).toEqual([
       { hash: "abc123", subject: "feat: new feature", body: "" },
     ]);
-    expect(mockedExecSync).toHaveBeenCalledWith(
-      'git log v1.0.0..HEAD --format="%H|%s|%b" --no-merges',
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      "git",
+      ["log", "-z", "--format=%H%x00%s%x00%b", "--no-merges", "--end-of-options", "v1.0.0..HEAD"],
+      expect.objectContaining({ cwd: "/repo" })
+    );
+  });
+
+  it("passes refs containing shell syntax as a single argument", () => {
+    mockedExecFileSync.mockReturnValue("");
+
+    getCommitsSince("v1.0.0; touch /tmp/injected..HEAD", "/repo");
+
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      "git",
+      ["log", "-z", "--format=%H%x00%s%x00%b", "--no-merges", "--end-of-options", "v1.0.0; touch /tmp/injected..HEAD..HEAD"],
       expect.objectContaining({ cwd: "/repo" })
     );
   });
 
   it("returns empty array when no new commits", () => {
-    mockedExecSync.mockReturnValue("");
+    mockedExecFileSync.mockReturnValue("");
 
     const result = getCommitsSince("v1.0.0", "/repo");
 

@@ -1,6 +1,6 @@
 import type { ConventionalCommit } from "./parser.js";
 import type { RemoteInfo } from "./remote.js";
-import { buildCommitUrl } from "./remote.js";
+import { buildCommitUrl, buildCompareUrl, buildIssueUrl, buildReleaseUrl } from "./remote.js";
 
 export interface TagChangelog {
   tag: string;
@@ -77,7 +77,7 @@ export function formatChangelog(
     if (breakingCommits.length > 0) {
       lines.push("### ⚠ BREAKING CHANGES", "");
       for (const commit of breakingCommits) {
-        const scope = commit.scope ? `**${commit.scope}**: ` : "";
+        const scope = commit.scope ? `**${escapeMarkdown(commit.scope)}**: ` : "";
         const subject = linkifyReferences(commit.subject, remote);
         const hashLink = formatHashLink(commit.hash, remote);
         lines.push(`- ${scope}${subject} ${hashLink}`);
@@ -95,7 +95,7 @@ export function formatChangelog(
       lines.push(`### ${label}`, "");
 
       for (const commit of typeCommits) {
-        const scope = commit.scope ? `**${commit.scope}**: ` : "";
+        const scope = commit.scope ? `**${escapeMarkdown(commit.scope)}**: ` : "";
         const subject = linkifyReferences(commit.subject, remote);
         const hashLink = formatHashLink(commit.hash, remote);
         lines.push(`- ${scope}${subject} ${hashLink}`);
@@ -126,16 +126,14 @@ function buildHeaderUrl(
   const current = changelogs[currentIndex];
   if (!current) return null;
 
-  const baseUrl = `https://${remote.host}/${remote.owner}/${remote.repo}`;
-
   const prevIndex = currentIndex + 1;
   const prev = changelogs[prevIndex];
 
   if (!prev) {
-    return `${baseUrl}/releases/tag/${encodeURIComponent(current.originalTag)}`;
+    return buildReleaseUrl(remote, current.originalTag);
   }
 
-  return `${baseUrl}/compare/${encodeURIComponent(prev.originalTag)}...${encodeURIComponent(current.originalTag)}`;
+  return buildCompareUrl(remote, prev.originalTag, current.originalTag);
 }
 
 function groupByType(commits: ConventionalCommit[]): Record<string, ConventionalCommit[]> {
@@ -161,10 +159,20 @@ function formatHashLink(hash: string, remote?: RemoteInfo | null): string {
 }
 
 function linkifyReferences(text: string, remote?: RemoteInfo | null): string {
-  if (!remote) return text;
+  if (!remote) return escapeMarkdown(text);
 
-  return text.replace(ISSUE_REGEX, (match, num) => {
-    const url = `https://${remote.host}/${remote.owner}/${remote.repo}/issues/${num}`;
-    return `[#${num}](${url})`;
-  });
+  let lastIndex = 0;
+  let result = "";
+  for (const match of text.matchAll(ISSUE_REGEX)) {
+    const index = match.index;
+    const issue = match[1];
+    result += escapeMarkdown(text.slice(lastIndex, index));
+    result += `[#${issue}](${buildIssueUrl(remote, issue)})`;
+    lastIndex = index + match[0].length;
+  }
+  return result + escapeMarkdown(text.slice(lastIndex));
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/([\\`*_{}\[\]()!|<>])/g, "\\$1");
 }

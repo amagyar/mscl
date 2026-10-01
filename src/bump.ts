@@ -1,6 +1,6 @@
 import semver from "semver";
 import type { RawCommit } from "./git.js";
-import { parseConventionalCommit } from "./parser.js";
+import { extractVersion, parseConventionalCommit } from "./parser.js";
 
 export interface BumpResult {
   currentVersion: string;
@@ -13,7 +13,7 @@ export interface BumpResult {
 
 export function suggestNextVersion(commits: RawCommit[], lastTag: string | null): BumpResult {
   const currentVersion = lastTag ? extractVersionFromTag(lastTag) : "0.0.0";
-  const isPrerelease = lastTag ? lastTag.includes("-") : false;
+  const isPrerelease = (semver.parse(currentVersion)?.prerelease.length ?? 0) > 0;
   const conventionalCommits = commits
     .map(parseConventionalCommit)
     .filter((c): c is NonNullable<typeof c> => c !== null);
@@ -39,12 +39,17 @@ export function suggestNextVersion(commits: RawCommit[], lastTag: string | null)
 
   let nextVersion: string;
   
+  const parsedVersion = semver.parse(currentVersion);
+  const stableVersion = parsedVersion
+    ? `${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`
+    : currentVersion;
+
   if (isPrerelease && bumpType === "patch") {
-    nextVersion = currentVersion;
+    nextVersion = stableVersion;
   } else if (bumpType === "none") {
     nextVersion = currentVersion;
   } else {
-    nextVersion = semver.inc(currentVersion, bumpType) || currentVersion;
+    nextVersion = semver.inc(isPrerelease ? stableVersion : currentVersion, bumpType) || currentVersion;
   }
 
   return {
@@ -84,6 +89,5 @@ function escapeRegex(str: string): string {
 }
 
 function extractVersionFromTag(tag: string): string {
-  const match = tag.match(/v?(\d+\.\d+\.\d+)/);
-  return match ? match[1] : "0.0.0";
+  return extractVersion(tag) ?? "0.0.0";
 }

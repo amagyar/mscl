@@ -159,6 +159,8 @@ Use mscl directly in your GitHub Actions workflows:
 
 ## How It Works
 
+Changelog generation processes all valid SemVer tags in the repository, including tags from divergent histories. Version bump suggestions instead select the highest SemVer tag reachable from `HEAD` as their baseline, so unrelated branch tags cannot affect the suggested release version.
+
 1. Fetches all Git tags and sorts by Semantic Versioning (ignoring chronological order)
 2. Extracts version from dirty tags (e.g., `old-prefix-v1.0.0` → `1.0.0`)
 3. Maintains a global `seen_commits` set for deduplication
