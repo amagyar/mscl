@@ -2,6 +2,10 @@
   "name": "mscl",
   "version": "1.0.0",
   "author": "amagyar",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amagyar/mscl.git"
+  },
   "description": "Generate changelogs from Git tags using Conventional Commits",
   "type": "module",
   "bin": {

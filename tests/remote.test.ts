@@ -91,11 +91,11 @@ describe("buildCommitUrl", () => {
     );
   });
 
-  it("works with gitlab", () => {
-    const remote = { host: "gitlab.com", owner: "acme", repo: "my-lib" };
+  it("uses GitLab commit paths", () => {
+    const remote = { host: "gitlab.com", owner: "acme", repo: "group/my-lib" };
 
     expect(buildCommitUrl(remote, "def456")).toBe(
-      "https://gitlab.com/acme/my-lib/commit/def456"
+      "https://gitlab.com/acme/group/my-lib/-/commit/def456"
     );
   });
 });
@@ -108,6 +108,14 @@ describe("buildIssueUrl", () => {
       "https://github.com/acme/my-lib/issues/123"
     );
   });
+
+  it("uses GitLab issue paths", () => {
+    const remote = { host: "gitlab.com", owner: "acme", repo: "group/my-lib" };
+
+    expect(buildIssueUrl(remote, "123")).toBe(
+      "https://gitlab.com/acme/group/my-lib/-/issues/123"
+    );
+  });
 });
 
 describe("buildPullRequestUrl", () => {
@@ -116,6 +124,14 @@ describe("buildPullRequestUrl", () => {
 
     expect(buildPullRequestUrl(remote, "42")).toBe(
       "https://github.com/acme/my-lib/pull/42"
+    );
+  });
+
+  it("uses GitLab merge request paths", () => {
+    const remote = { host: "gitlab.com", owner: "acme", repo: "group/my-lib" };
+
+    expect(buildPullRequestUrl(remote, "42")).toBe(
+      "https://gitlab.com/acme/group/my-lib/-/merge_requests/42"
     );
   });
 });

@@ -68,6 +68,22 @@ describe("suggestNextVersion", () => {
       expect(result.nextVersion).toBe("1.1.0");
     });
 
+    it("patch-bumps a stable version in a prefixed tag", () => {
+      const commits = [createRawCommit("fix: resolve bug")];
+      const result = suggestNextVersion(commits, "old-prefix-v1.2.3");
+
+      expect(result.currentVersion).toBe("1.2.3");
+      expect(result.nextVersion).toBe("1.2.4");
+    });
+
+    it("uses the stable base for a patch after a prefixed prerelease tag", () => {
+      const commits = [createRawCommit("fix: resolve bug")];
+      const result = suggestNextVersion(commits, "release-v1.2.3-rc.2");
+
+      expect(result.currentVersion).toBe("1.2.3-rc.2");
+      expect(result.nextVersion).toBe("1.2.3");
+    });
+
     it("breaking takes precedence over feat and fix", () => {
       const commits = [
         createRawCommit("feat: add feature"),

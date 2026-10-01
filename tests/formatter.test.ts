@@ -262,6 +262,29 @@ describe("formatChangelog", () => {
     });
   });
 
+  describe("safe Markdown text", () => {
+    it("escapes Markdown syntax in commit subject and scope", () => {
+      const changelogs: TagChangelog[] = [
+        createChangelog("v1.0.0", [createCommit("fix", "show *raw* [text] <tag>", "api*scope")]),
+      ];
+
+      const result = formatChangelog(changelogs);
+
+      expect(result).toContain("**api\\*scope**:");
+      expect(result).toContain("show \\*raw\\* \\[text\\] \\<tag\\>");
+    });
+
+    it("keeps issue references linked while escaping surrounding text", () => {
+      const changelogs: TagChangelog[] = [
+        createChangelog("v1.0.0", [createCommit("fix", "*fix* #123 [details]")]),
+      ];
+
+      const result = formatChangelog(changelogs, { remote: mockRemote });
+
+      expect(result).toContain("\\*fix\\* [#123](https://github.com/acme/my-lib/issues/123) \\[details\\]");
+    });
+  });
+
   describe("rich linking", () => {
     it("creates commit links when remote is provided", () => {
       const changelogs: TagChangelog[] = [
