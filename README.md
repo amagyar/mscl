@@ -88,6 +88,8 @@ Use mscl directly in your GitHub Actions workflows:
     working-directory: .
 ```
 
+The action runs the mscl CLI from npm via `npx`, so it requires Node.js/npm on the runner (preinstalled on GitHub-hosted runners). When invoked via a version tag (e.g. `@v1.2.3`), it runs that exact npm version; otherwise it defaults to `latest` unless overridden with the `version` input.
+
 **Inputs:**
 
 | Input               | Description                                              | Required | Default        |
@@ -98,6 +100,7 @@ Use mscl directly in your GitHub Actions workflows:
 | `bump`              | Output suggested next version instead of changelog       | No       | `false`        |
 | `prefix`            | Prefix for bump output (e.g., `v` for v1.2.3)            | No       | `""`           |
 | `suffix`            | Suffix for bump output (e.g., `-rc.1`)                   | No       | `""`           |
+| `version`           | mscl npm version to run                                  | No       | `""`           |
 
 **Outputs:**
 

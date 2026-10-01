@@ -2,8 +2,7 @@ import { defineConfig } from "tsup";
 
 export default defineConfig({
   entry: {
-    index: "src/index.ts",
-    action: "src/action.ts",
+    index: "src/index.ts"
   },
   format: ["esm"],
   clean: true,
