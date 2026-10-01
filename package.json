@@ -22,7 +22,6 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@actions/core": "^3.0.0",
     "commander": "^15.0.0",
     "semver": "^7.7.4"
   },

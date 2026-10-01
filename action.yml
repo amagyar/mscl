@@ -30,6 +30,10 @@ inputs:
     description: 'Suffix for bump output (e.g., "-rc.1")'
     required: false
     default: ''
+  version:
+    description: 'mscl npm version to run (defaults to the version matching the action ref, or latest)'
+    required: false
+    default: ''
 
 outputs:
   changelog:
@@ -38,5 +42,49 @@ outputs:
     description: 'Suggested next version (when bump is enabled)'
 
 runs:
-  using: 'node20'
-  main: 'dist/action.js'
+  using: 'composite'
+  steps:
+    - name: Run mscl
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        MSCL_VERSION_INPUT: ${{ inputs.version }}
+        MSCL_BUMP: ${{ inputs.bump }}
+        MSCL_PREFIX: ${{ inputs.prefix }}
+        MSCL_SUFFIX: ${{ inputs.suffix }}
+        MSCL_FILE: ${{ inputs.file }}
+        MSCL_VERBOSE: ${{ inputs.verbose }}
+      run: |
+        # Resolve which npm version of mscl to run: the explicit `version`
+        # input first, then the version matching the action ref (e.g.
+        # `uses: amagyar/mscl@v0.2.0` -> 0.2.0, `@v1` -> ^1), else latest.
+        version="$MSCL_VERSION_INPUT"
+        if [ -z "$version" ]; then
+          ref="${GITHUB_ACTION_REF#v}"
+          if [[ "$ref" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            version="$ref"
+          elif [[ "$ref" =~ ^[0-9]+$ ]]; then
+            version="^$ref"
+          else
+            version="latest"
+          fi
+        fi
+
+        args=()
+        if [ "$MSCL_BUMP" = "true" ]; then
+          args+=(--bump)
+          if [ -n "$MSCL_PREFIX" ]; then
+            args+=("--prefix=$MSCL_PREFIX")
+          fi
+          if [ -n "$MSCL_SUFFIX" ]; then
+            args+=("--suffix=$MSCL_SUFFIX")
+          fi
+          echo "version=$(npx --yes "mscl@$version" "${args[@]}")" >> "$GITHUB_OUTPUT"
+        else
+          args+=("--file=$MSCL_FILE")
+          if [ "$MSCL_VERBOSE" = "true" ]; then
+            args+=(--all)
+          fi
+          npx --yes "mscl@$version" "${args[@]}"
+          echo "changelog=$MSCL_FILE" >> "$GITHUB_OUTPUT"
+        fi
