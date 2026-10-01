@@ -17,11 +17,15 @@ jobs:
         with:
           egress-policy: audit
 
+      # Checkout with the PAT (owned by a user on the rulesets' bypass list)
+      # instead of GITHUB_TOKEN: github-actions[bot] cannot be added to a
+      # ruleset bypass list, so the tag/release rulesets reject it. The token
+      # is persisted as git credentials, so the later `git push` steps use it too.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -90,3 +94,6 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: CHANGELOG.md
+        env:
+          # PAT so release creation bypasses the tag/release rulesets
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
